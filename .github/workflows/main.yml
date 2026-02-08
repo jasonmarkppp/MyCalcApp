@@ -11,27 +11,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. 清理磁盘空间（防止空间不足报错）
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+      # 1. 安装 Java 环境 (安卓打包必须)
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+          distribution: 'temurin'
+          java-version: '17'
 
-      # 2. 开始打包（换成了官方的 kivy action）
+      # 2. 安装 Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # 3. 安装系统级依赖 (跟我们在 Colab 做的一样，稳！)
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip build-essential git python3 python3-dev \
+            ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev \
+            libgstreamer1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            libtool autoconf automake libffi-dev libltdl-dev zip unzip
+
+      # 4. 安装 Buildozer 和 Cython (指定旧版本防报错)
+      - name: Install Buildozer
+        run: |
+          pip3 install --upgrade pip
+          pip3 install buildozer cython==0.29.33
+
+      # 5. 开始打包 (yes 命令会自动同意所有许可协议，不会卡住)
       - name: Build with Buildozer
-        uses: kivy/buildozer-action@v1.3.0
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
+        run: |
+          yes | buildozer android debug
 
-      # 3. 上传生成的 APK
+      # 6. 上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
