@@ -1,0 +1,39 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # 1. 释放空间（防止打包过程中磁盘满了）
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      # 2. 开始打包（使用现成的 Buildozer 动作）
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      # 3. 上传生成的 APK 供下载
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyCalculator-APK
+          path: bin/*.apk
