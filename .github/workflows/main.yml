@@ -6,45 +6,33 @@ on:
 
 jobs:
   build:
-    # 关键修改 1：不使用 latest，强制使用 Ubuntu 22.04 (老版本更稳定)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      # 关键修改 2：强制使用 Java 11 (安卓打包的黄金搭档，Java 17 经常报错)
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      # 1. 清理空间 (老规矩，防止空间不足)
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false # 保留Docker，我们需要用它
+          swap-storage: true
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      # 安装依赖 (我顺便帮你修正了几个可能缺少的 -dev 包)
-      - name: Install System Dependencies
+      # 2. 核心大招：直接用 Kivy 官方的 Docker 镜像打包
+      # 这行命令会启动一个纯净的容器，把你的代码放进去跑，完全无视外部环境报错
+      - name: Build with Buildozer Docker
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential git python3-dev \
-            ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev \
-            libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-            libtool autoconf automake libffi-dev libltdl-dev zip unzip
+          # 赋予当前目录写权限，防止 Docker 写不进文件
+          sudo chmod 777 .
+          # 启动官方容器进行打包
+          docker run --rm -v "$PWD":/home/user/hostcwd kivy/buildozer android debug
 
-      - name: Install Buildozer
-        run: |
-          pip3 install --upgrade pip
-          pip3 install buildozer cython==0.29.33
-
-      # 关键修改 3：去掉 'yes |'，因为你的 spec 文件里已经开启了自动同意协议
-      # 这样如果不幸报错，我们能看到真正的错误信息，而不是 'Broken pipe'
-      - name: Build APK
-        run: buildozer android debug
-
+      # 3. 上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
